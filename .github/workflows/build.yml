@@ -77,18 +77,34 @@ jobs:
         run: |
           git clone --recurse-submodules https://github.com/sineorg/installer.git external
 
-      # ---------- Linux OpenGL / X11 ----------
-      - name: Install OpenGL dependencies (Linux)
+      # ---------- Linux OpenGL / Wayland / X11 ----------
+      - name: Install GUI dependencies (Linux)
         if: matrix.os == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            pkg-config \
             libgl1-mesa-dev \
+            libegl1-mesa-dev \
             libx11-dev \
             libxrandr-dev \
             libxinerama-dev \
             libxcursor-dev \
-            libxi-dev
+            libxi-dev \
+            libxext-dev \
+            libxfixes-dev \
+            libwayland-dev \
+            libwayland-bin \
+            wayland-protocols \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            extra-cmake-modules
+
+      - name: Enable Wayland feature for GLFW (Linux)
+        if: matrix.os == 'linux'
+        run: |
+          jq '(.dependencies[] | select(. == "glfw3" or .name == "glfw3")) |= if type == "string" then {"name": ., "features": ["wayland"]} else .features += ["wayland"] end' external/vcpkg.json > external/vcpkg.json.tmp
+          mv external/vcpkg.json.tmp external/vcpkg.json
 
       # ---------- Ninja ----------
       - name: Install Ninja (Linux)
@@ -129,8 +145,12 @@ jobs:
         run: |
           cmake -S external -B build \
             -G "${GENERATOR}" \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET="${VCPKG_DEFAULT_TRIPLET}" \
             -DSINE_VERSION=${SINE_VERSION} \
-            -DBOOT_VERSION=${BOOT_VERSION}
+            -DBOOT_VERSION=${BOOT_VERSION} \
+            -DGLFW_BUILD_WAYLAND=ON \
+            -DGLFW_BUILD_X11=ON
         env:
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
           VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
