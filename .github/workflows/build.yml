@@ -103,8 +103,21 @@ jobs:
       - name: Enable Wayland feature for GLFW (Linux)
         if: matrix.os == 'linux'
         run: |
-          jq '(.dependencies[] | select(. == "glfw3" or .name == "glfw3")) |= if type == "string" then {"name": ., "features": ["wayland"]} else .features += ["wayland"] end' external/vcpkg.json > external/vcpkg.json.tmp
-          mv external/vcpkg.json.tmp external/vcpkg.json
+          python3 -c "
+          import json
+          with open('external/vcpkg.json', 'r') as f:
+              data = json.load(f)
+          for i, dep in enumerate(data.get('dependencies', [])):
+              if dep == 'glfw3':
+                  data['dependencies'][i] = {'name': 'glfw3', 'features': ['wayland']}
+              elif isinstance(dep, dict) and dep.get('name') == 'glfw3':
+                  features = dep.get('features', [])
+                  if 'wayland' not in features:
+                      features.append('wayland')
+                  dep['features'] = features
+          with open('external/vcpkg.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
 
       # ---------- Ninja ----------
       - name: Install Ninja (Linux)
